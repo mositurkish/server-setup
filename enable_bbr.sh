@@ -61,6 +61,7 @@ sudo ufw allow 443/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 7845/tcp
 sudo ufw allow 2024/tcp
+sudo ufw allow 22
 sudo ufw deny out from any to 10.0.0.0/8
 sudo ufw deny out from any to 172.16.0.0/12
 sudo ufw deny out from any to 192.168.0.0/16
