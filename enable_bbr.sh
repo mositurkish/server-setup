@@ -1,30 +1,81 @@
 #!/bin/bash
 
-# بررسی نسخه کرنل
-kernel_version=$(uname -r)
-echo "Kernel version: $kernel_version"
+# Update and upgrade the server
+sudo apt update -y && sudo apt upgrade -y
 
-# اضافه کردن تنظیمات BBR به sysctl.conf
-echo "Configuring BBR..."
-echo "net.core.default_qdisc = fq" | sudo tee -a /etc/sysctl.conf
-echo "net.ipv4.tcp_congestion_control = bbr" | sudo tee -a /etc/sysctl.conf
+# Install necessary tools
+sudo apt install -y curl iptables ufw expect
 
-# اعمال تنظیمات
-echo "Applying sysctl settings..."
+# Create an expect script to handle the interactive installation
+cat << 'EOF' > install_3x_ui.exp
+#!/usr/bin/expect -f
+
+set timeout -1
+spawn bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+
+# Loop to handle multiple prompts with Enter key
+while {1} {
+    expect {
+        "Enter your choice:" { send "\r"; exp_continue }
+        eof { break }
+    }
+}
+EOF
+
+# Run the expect script
+chmod +x install_3x_ui.exp
+./install_3x_ui.exp
+
+# Enable BBR
+echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
+echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
 
-# بررسی فعال شدن BBR
-echo "Checking if BBR is enabled..."
-tcp_congestion_control=$(sysctl net.ipv4.tcp_congestion_control | awk '{print $3}')
+# Configure firewall
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 2087/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 7845/tcp
+sudo ufw allow 2024/tcp
+sudo ufw deny out from any to 10.0.0.0/8
+sudo ufw deny out from any to 172.16.0.0/12
+sudo ufw deny out from any to 192.168.0.0/16
+sudo ufw deny out from any to 100.64.0.0/10
+sudo ufw deny out from any to 198.18.0.0/15
+sudo ufw deny out from any to 169.254.0.0/16
+sudo ufw deny out from any to 102.236.0.0/16
+sudo ufw deny out from any to 2.60.0.0/16
+sudo ufw deny out from any to 5.1.41.0/12
+sudo ufw enable
 
-if [ "$tcp_congestion_control" = "bbr" ]; then
-    echo "BBR has been successfully enabled."
-else
-    echo "BBR activation failed."
-fi
+# Set iptables rules
+sudo iptables -A FORWARD -s 200.0.0.0/8 -j DROP
+sudo iptables -A FORWARD -s 102.0.0.0/8 -j DROP
+sudo iptables -A FORWARD -s 10.0.0.0/8 -j DROP
+sudo iptables -A FORWARD -s 100.64.0.0/10 -j DROP
+sudo iptables -A FORWARD -s 169.254.0.0/16 -j DROP
+sudo iptables -A FORWARD -s 198.18.0.0/15 -j DROP
+sudo iptables -A FORWARD -s 198.51.100.0/24 -j DROP
+sudo iptables -A FORWARD -s 203.0.113.0/24 -j DROP
+sudo iptables -A FORWARD -s 224.0.0.0/4 -j DROP
+sudo iptables -A FORWARD -s 240.0.0.0/4 -j DROP
+sudo iptables -A FORWARD -s 255.255.255.255/32 -j DROP
+sudo iptables -A FORWARD -s 192.0.0.0/24 -j DROP
+sudo iptables -A FORWARD -s 192.0.2.0/24 -j DROP
+sudo iptables -A FORWARD -s 127.0.0.0/8 -j DROP
+sudo iptables -A FORWARD -s 127.0.53.53 -j DROP
+sudo iptables -A FORWARD -s 192.168.0.0/16 -j DROP
+sudo iptables -A FORWARD -s 0.0.0.0/8 -j DROP
+sudo iptables -A FORWARD -s 172.16.0.0/12 -j DROP
+sudo iptables -A FORWARD -s 224.0.0.0/3 -j DROP
+sudo iptables -A FORWARD -s 192.88.99.0/24 -j DROP
+sudo iptables -A FORWARD -s 169.254.0.0/16 -j DROP
+sudo iptables -A FORWARD -s 198.18.140.0/24 -j DROP
+sudo iptables -A FORWARD -s 102.230.9.0/24 -j DROP
+sudo iptables -A FORWARD -s 102.233.71.0/24 -j DROP
+sudo iptables-save
 
-# بررسی ماژول BBR
-echo "Checking BBR module..."
-lsmod | grep bbr && echo "BBR module is loaded." || echo "BBR module is not loaded."
-
-echo "Done."
+# Reboot the server to apply changes
+sudo reboot
