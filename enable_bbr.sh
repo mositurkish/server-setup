@@ -6,12 +6,18 @@ sudo apt update -y && sudo apt upgrade -y
 # Install necessary tools
 sudo apt install -y curl iptables ufw expect
 
+# Create a temporary file to hold the script
+TEMP_SCRIPT=$(mktemp)
+
+# Download the installation script to the temporary file
+curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh -o "$TEMP_SCRIPT"
+
 # Create an expect script to handle the interactive installation
 cat << 'EOF' > /tmp/install_with_expect.exp
 #!/usr/bin/expect -f
 
 set timeout -1
-spawn bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+spawn bash /path/to/temp_script
 
 # Handle prompts that may appear during installation
 expect {
@@ -39,6 +45,9 @@ expect {
 }
 EOF
 
+# Replace '/path/to/temp_script' with the actual path to the temp script
+sed -i "s|/path/to/temp_script|$TEMP_SCRIPT|g" /tmp/install_with_expect.exp
+
 # Make the expect script executable
 chmod +x /tmp/install_with_expect.exp
 
@@ -47,6 +56,7 @@ chmod +x /tmp/install_with_expect.exp
 
 # Clean up
 rm /tmp/install_with_expect.exp
+rm "$TEMP_SCRIPT"
 
 # Enable BBR
 echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
@@ -54,6 +64,7 @@ echo "net.ipv4.tcp_congestion_control=bbr" | sudo tee -a /etc/sysctl.conf
 sudo sysctl -p
 
 # Configure firewall
+sudo ufw reset
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 2087/tcp
@@ -61,16 +72,9 @@ sudo ufw allow 443/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 7845/tcp
 sudo ufw allow 2024/tcp
-sudo ufw allow 22
-sudo ufw deny out from any to 10.0.0.0/8
-sudo ufw deny out from any to 172.16.0.0/12
-sudo ufw deny out from any to 192.168.0.0/16
-sudo ufw deny out from any to 100.64.0.0/10
-sudo ufw deny out from any to 198.18.0.0/15
-sudo ufw deny out from any to 169.254.0.0/16
-sudo ufw deny out from any to 102.236.0.0/16
-sudo ufw deny out from any to 2.60.0.0/16
-sudo ufw deny out from any to 5.1.41.0/12
+
+# To avoid interactive prompts with ufw, reset the firewall and enable it
+sudo ufw reload
 sudo ufw enable
 
 # Set iptables rules
