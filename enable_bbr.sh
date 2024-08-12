@@ -25,6 +25,10 @@ expect {
         send "y\r"
         exp_continue
     }
+    "Would you like to customize the panel settings? (If not, random settings will be applied) [y/n]:" {
+        send "\r"  ;# This sends Enter to skip customization
+        exp_continue
+    }
     "Are you sure you want to continue?" {
         send "y\r"
         exp_continue
@@ -37,8 +41,8 @@ expect {
         send "y\r"
         exp_continue
     }
-    "Enter your choice:" {
-        send "\r"
+    "Resetting all rules to installed defaults. This may disrupt existing ssh connections. Proceed with operation (y|n)?" {
+        send "y\r"
         exp_continue
     }
     eof
@@ -65,6 +69,8 @@ sudo sysctl -p
 
 # Configure firewall
 sudo ufw reset
+# Handle the prompt to proceed with resetting
+echo "y" | sudo ufw --force reset
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 sudo ufw allow 2087/tcp
