@@ -7,24 +7,46 @@ sudo apt update -y && sudo apt upgrade -y
 sudo apt install -y curl iptables ufw expect
 
 # Create an expect script to handle the interactive installation
-cat << 'EOF' > install_3x_ui.exp
+cat << 'EOF' > /tmp/install_with_expect.exp
 #!/usr/bin/expect -f
 
 set timeout -1
 spawn bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
 
-# Loop to handle multiple prompts with Enter key
-while {1} {
-    expect {
-        "Enter your choice:" { send "\r"; exp_continue }
-        eof { break }
+# Handle prompts that may appear during installation
+expect {
+    "Command may disrupt existing ssh connections. Proceed with operation (y|n)?" {
+        send "y\r"
+        exp_continue
     }
+    "Are you sure you want to continue?" {
+        send "y\r"
+        exp_continue
+    }
+    "Do you want to continue?" {
+        send "y\r"
+        exp_continue
+    }
+    "Do you want to proceed?" {
+        send "y\r"
+        exp_continue
+    }
+    "Enter your choice:" {
+        send "\r"
+        exp_continue
+    }
+    eof
 }
 EOF
 
+# Make the expect script executable
+chmod +x /tmp/install_with_expect.exp
+
 # Run the expect script
-chmod +x install_3x_ui.exp
-./install_3x_ui.exp
+/tmp/install_with_expect.exp
+
+# Clean up
+rm /tmp/install_with_expect.exp
 
 # Enable BBR
 echo "net.core.default_qdisc=fq" | sudo tee -a /etc/sysctl.conf
@@ -65,7 +87,7 @@ sudo iptables -A FORWARD -s 255.255.255.255/32 -j DROP
 sudo iptables -A FORWARD -s 192.0.0.0/24 -j DROP
 sudo iptables -A FORWARD -s 192.0.2.0/24 -j DROP
 sudo iptables -A FORWARD -s 127.0.0.0/8 -j DROP
-sudo iptables -A FORWARD -s 127.0.53.53 -j DROP
+sudo iptables -A FORWARD -s 127.0.53.53/32 -j DROP
 sudo iptables -A FORWARD -s 192.168.0.0/16 -j DROP
 sudo iptables -A FORWARD -s 0.0.0.0/8 -j DROP
 sudo iptables -A FORWARD -s 172.16.0.0/12 -j DROP
